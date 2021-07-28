@@ -1,0 +1,305 @@
+ETL Processes
+Use this notebook to develop the ETL process for each of your tables before completing the etl.py file to load the whole datasets.
+
+import os
+import glob
+import psycopg2
+import pandas as pd
+from sql_queries import *
+conn = psycopg2.connect("host=127.0.0.1 dbname=sparkifydb user=student password=student")
+cur = conn.cursor()
+def get_files(filepath):
+    all_files = []
+    for root, dirs, files in os.walk(filepath):
+        files = glob.glob(os.path.join(root,'*.json'))
+        for f in files :
+            all_files.append(os.path.abspath(f))
+    
+    return all_files
+Process song_data
+In this first part, you'll perform ETL on the first dataset, song_data, to create the songs and artists dimensional tables.
+
+Let's perform ETL on a single song file and load a single record into each table to start.
+
+Use the get_files function provided above to get a list of all song JSON files in data/song_data
+Select the first song in this list
+Read the song file and view the data
+song_files = get_files('data/song_data')
+song_files
+['/home/workspace/data/song_data/A/A/A/TRAAAAW128F429D538.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAAVG12903CFA543.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAARJ128F9320760.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAAPK128E0786D96.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAABD128F429CF47.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAAMO128F1481E7F.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAAMQ128F1460CD3.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAAVO128F93133D4.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAAEF128F4273421.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAAFD128F92F423A.json',
+ '/home/workspace/data/song_data/A/A/A/TRAAADZ128F9348C2E.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABNV128F425CEE1.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABRB128F9306DD5.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABLR128F423B7E3.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABDL12903CAABBA.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABJL12903CDCF1A.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABVM128F92CA9DC.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABYN12903CFD305.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABXG128F9318EBD.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABCL128F4286650.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABYW128F4244559.json',
+ '/home/workspace/data/song_data/A/A/B/TRAABJV128F1460C49.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACVS128E078BE39.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACPE128F421C1B9.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACLV128F427E123.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACER128F4290F96.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACTB12903CAAF15.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACFV128F935E50B.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACIW12903CC0F6D.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACOW128F933E35F.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACHN128F1489601.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACCG128F92E8A55.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACQT128F9331780.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACNS128F14A2DF5.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACSL128F93462F4.json',
+ '/home/workspace/data/song_data/A/A/C/TRAACZK128F4243829.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAIO128F42938F9.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAWW128F4250A31.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAZH128F930419A.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAVQ12903CBF7E0.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAXR128F426515F.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAXL128F424FC50.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAFJ128F42AF24E.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAXV128F92F6AE3.json',
+ '/home/workspace/data/song_data/A/B/A/TRABACN128F425B784.json',
+ '/home/workspace/data/song_data/A/B/A/TRABATO128F42627E9.json',
+ '/home/workspace/data/song_data/A/B/A/TRABAFP128F931E9A1.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBVJ128F92F7EAA.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBXU128F92FEF48.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBAM128F429D223.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBZN12903CD9297.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBNP128F932546F.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBOR128F4286200.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBOP128F931B50D.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBLU128F93349CF.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBBV128F42967D7.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBJE12903CDB442.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBKX128F4285205.json',
+ '/home/workspace/data/song_data/A/B/B/TRABBTA128F933D304.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCEI128F424C983.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCUQ128E0783E2B.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCTK128F934B224.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCIX128F4265903.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCEC128F426456E.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCPZ128F4275C32.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCXB128F4286BD3.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCAJ12903CDFCC2.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCFL128F149BB0D.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCKL128F423A778.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCRU128F423F449.json',
+ '/home/workspace/data/song_data/A/B/C/TRABCYE128F934CE1D.json']
+filepath = song_files[0]
+filepath
+'/home/workspace/data/song_data/A/A/A/TRAAAAW128F429D538.json'
+df = pd.read_json(filepath, lines=True)
+df.head()
+artist_id	artist_latitude	artist_location	artist_longitude	artist_name	duration	num_songs	song_id	title	year
+0	ARD7TVE1187B99BFB1	NaN	California - LA	NaN	Casual	218.93179	1	SOMZWCG12A8C13C480	I Didn't Mean To	0
+#1: songs Table
+Extract Data for Songs Table
+Select columns for song ID, title, artist ID, year, and duration
+Use df.values to select just the values from the dataframe
+Index to select the first (only) record in the dataframe
+Convert the array to a list and set it to song_data
+list(df[['duration', 'artist_longitude']].values[0])
+[218.93179000000001, nan]
+song_data = list(df[['song_id', 'title', 'artist_id', 'year', 'duration']].values[0])
+song_data
+['SOMZWCG12A8C13C480', "I Didn't Mean To", 'ARD7TVE1187B99BFB1', 0, 218.93179]
+Insert Record into Song Table
+Implement the song_table_insert query in sql_queries.py and run the cell below to insert a record for this song into the songs table. Remember to run create_tables.py before running the cell below to ensure you've created/resetted the songs table in the sparkify database.
+
+cur.execute(song_table_insert, song_data)
+conn.commit()
+Run test.ipynb to see if you've successfully added a record to this table.
+
+#2: artists Table
+Extract Data for Artists Table
+Select columns for artist ID, name, location, latitude, and longitude
+Use df.values to select just the values from the dataframe
+Index to select the first (only) record in the dataframe
+Convert the array to a list and set it to artist_data
+artist_data = list(df[['artist_id', 'artist_name', 'artist_location', 'artist_latitude', 'artist_longitude']].values[0])
+artist_data
+​
+['ARD7TVE1187B99BFB1', 'Casual', 'California - LA', nan, nan]
+Insert Record into Artist Table
+Implement the artist_table_insert query in sql_queries.py and run the cell below to insert a record for this song's artist into the artists table. Remember to run create_tables.py before running the cell below to ensure you've created/resetted the artists table in the sparkify database.
+
+cur.execute(artist_table_insert, artist_data)
+conn.commit()
+Run test.ipynb to see if you've successfully added a record to this table.
+
+Process log_data
+In this part, you'll perform ETL on the second dataset, log_data, to create the time and users dimensional tables, as well as the songplays fact table.
+
+Let's perform ETL on a single log file and load a single record into each table.
+
+Use the get_files function provided above to get a list of all log JSON files in data/log_data
+Select the first log file in this list
+Read the log file and view the data
+log_files = get_files('data/log_data')
+log_files
+log_files
+['/home/workspace/data/log_data/2018/11/2018-11-30-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-11-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-23-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-24-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-25-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-20-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-15-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-01-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-03-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-13-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-10-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-28-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-26-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-04-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-14-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-27-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-21-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-06-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-22-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-12-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-05-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-09-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-08-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-02-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-18-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-07-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-16-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-29-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-19-events.json',
+ '/home/workspace/data/log_data/2018/11/2018-11-17-events.json']
+filepath = log_files[0]
+df = pd.read_json(filepath, lines=True)
+df.head()
+artist	auth	firstName	gender	itemInSession	lastName	length	level	location	method	page	registration	sessionId	song	status	ts	userAgent	userId
+0	Stephen Lynch	Logged In	Jayden	M	0	Bell	182.85669	free	Dallas-Fort Worth-Arlington, TX	PUT	NextSong	1.540992e+12	829	Jim Henson's Dead	200	1543537327796	Mozilla/5.0 (compatible; MSIE 10.0; Windows NT...	91
+1	Manowar	Logged In	Jacob	M	0	Klein	247.56200	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Shell Shock	200	1543540121796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+2	Morcheeba	Logged In	Jacob	M	1	Klein	257.41016	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Women Lose Weight (Feat: Slick Rick)	200	1543540368796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+3	Maroon 5	Logged In	Jacob	M	2	Klein	231.23546	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Won't Go Home Without You	200	1543540625796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+4	Train	Logged In	Jacob	M	3	Klein	216.76363	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Hey_ Soul Sister	200	1543540856796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+#3: time Table
+Extract Data for Time Table
+Filter records by NextSong action
+Convert the ts timestamp column to datetime
+Hint: the current timestamp is in milliseconds
+Extract the timestamp, hour, day, week of year, month, year, and weekday from the ts column and set time_data to a list containing these values in order
+Hint: use pandas' dt attribute to access easily datetimelike properties.
+Specify labels for these columns and set to column_labels
+Create a dataframe, time_df, containing the time data for this file by combining column_labels and time_data into a dictionary and converting this into a dataframe
+=
+df = df.loc[df['page'] == 'NextSong']
+df.head()
+artist	auth	firstName	gender	itemInSession	lastName	length	level	location	method	page	registration	sessionId	song	status	ts	userAgent	userId
+0	Stephen Lynch	Logged In	Jayden	M	0	Bell	182.85669	free	Dallas-Fort Worth-Arlington, TX	PUT	NextSong	1.540992e+12	829	Jim Henson's Dead	200	1543537327796	Mozilla/5.0 (compatible; MSIE 10.0; Windows NT...	91
+1	Manowar	Logged In	Jacob	M	0	Klein	247.56200	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Shell Shock	200	1543540121796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+2	Morcheeba	Logged In	Jacob	M	1	Klein	257.41016	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Women Lose Weight (Feat: Slick Rick)	200	1543540368796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+3	Maroon 5	Logged In	Jacob	M	2	Klein	231.23546	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Won't Go Home Without You	200	1543540625796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+4	Train	Logged In	Jacob	M	3	Klein	216.76363	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Hey_ Soul Sister	200	1543540856796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+t = pd.to_datetime(df['ts'], unit='ms')
+t.head()
+0   2018-11-30 00:22:07.796
+1   2018-11-30 01:08:41.796
+2   2018-11-30 01:12:48.796
+3   2018-11-30 01:17:05.796
+4   2018-11-30 01:20:56.796
+Name: ts, dtype: datetime64[ns]
+time_data = [df.ts.values, t.dt.hour.values, t.dt.day.values, t.dt.weekofyear.values, t.dt.month.values, t.dt.year.values, t.dt.weekday.values]
+column_labels = ['start_time', 'hour', 'day', 'week', 'month', 'year', 'weekday']
+​
+)
+time_df = pd.DataFrame(dict(zip(column_labels, time_data)))
+time_df.head()
+start_time	hour	day	week	month	year	weekday
+0	1543537327796	0	30	48	11	2018	4
+1	1543540121796	1	30	48	11	2018	4
+2	1543540368796	1	30	48	11	2018	4
+3	1543540625796	1	30	48	11	2018	4
+4	1543540856796	1	30	48	11	2018	4
+Insert Records into Time Table
+Implement the time_table_insert query in sql_queries.py and run the cell below to insert records for the timestamps in this log file into the time table. Remember to run create_tables.py before running the cell below to ensure you've created/resetted the time table in the sparkify database.
+
+for i, row in time_df.iterrows():
+    cur.execute(time_table_insert, list(row))
+    conn.commit()
+Run test.ipynb to see if you've successfully added records to this table.
+
+#4: users Table
+Extract Data for Users Table
+Select columns for user ID, first name, last name, gender and level and set to user_df
+user_df = df[['userId', 'firstName', 'lastName', 'gender', 'level']]
+user_df.head()
+userId	firstName	lastName	gender	level
+0	91	Jayden	Bell	M	free
+1	73	Jacob	Klein	M	paid
+2	73	Jacob	Klein	M	paid
+3	73	Jacob	Klein	M	paid
+4	73	Jacob	Klein	M	paid
+Insert Records into Users Table
+Implement the user_table_insert query in sql_queries.py and run the cell below to insert records for the users in this log file into the users table. Remember to run create_tables.py before running the cell below to ensure you've created/resetted the users table in the sparkify database.
+
+)
+for i, row in user_df.iterrows():
+    cur.execute(user_table_insert, list(row))
+    conn.commit()
+Run test.ipynb to see if you've successfully added records to this table.
+
+#5: songplays Table
+Extract Data and Songplays Table
+This one is a little more complicated since information from the songs table, artists table, and original log file are all needed for the songplays table. Since the log file does not specify an ID for either the song or the artist, you'll need to get the song ID and artist ID by querying the songs and artists tables to find matches based on song title, artist name, and song duration time.
+
+Implement the song_select query in sql_queries.py to find the song ID and artist ID based on the title, artist name, and duration of a song.
+Select the timestamp, user ID, level, song ID, artist ID, session ID, location, and user agent and set to songplay_data
+Insert Records into Songplays Table
+Implement the songplay_table_insert query and run the cell below to insert records for the songplay actions in this log file into the songplays table. Remember to run create_tables.py before running the cell below to ensure you've created/resetted the songplays table in the sparkify database.
+df.head()
+artist	auth	firstName	gender	itemInSession	lastName	length	level	location	method	page	registration	sessionId	song	status	ts	userAgent	userId
+0	Stephen Lynch	Logged In	Jayden	M	0	Bell	182.85669	free	Dallas-Fort Worth-Arlington, TX	PUT	NextSong	1.540992e+12	829	Jim Henson's Dead	200	1543537327796	Mozilla/5.0 (compatible; MSIE 10.0; Windows NT...	91
+1	Manowar	Logged In	Jacob	M	0	Klein	247.56200	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Shell Shock	200	1543540121796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+2	Morcheeba	Logged In	Jacob	M	1	Klein	257.41016	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Women Lose Weight (Feat: Slick Rick)	200	1543540368796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+3	Maroon 5	Logged In	Jacob	M	2	Klein	231.23546	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Won't Go Home Without You	200	1543540625796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+4	Train	Logged In	Jacob	M	3	Klein	216.76363	paid	Tampa-St. Petersburg-Clearwater, FL	PUT	NextSong	1.540558e+12	1049	Hey_ Soul Sister	200	1543540856796	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4...	73
+for index, row in df.iterrows():
+​
+    # get songid and artistid from song and artist tables
+    cur.execute(("""select s.song_id, ar.artist_id from songs s join artists ar on s.artist_id = ar.artist_id where s.title = (%s) and ar.name = (%s) and s.duration = (%s)
+"""), (row.song, row.artist, row.length))
+    results = cur.fetchone()
+    
+    if results:
+        songid, artistid = results
+    else:
+        songid, artistid = None, None
+​
+    # insert songplay record
+    songplay_data = (row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
+    cur.execute(songplay_table_insert, songplay_data)
+    conn.commit()
+    
+---------------------------------------------------------------------------
+IndexError                                Traceback (most recent call last)
+<ipython-input-36-5dace71f054c> in <module>()
+     13     # insert songplay record
+     14     songplay_data = (row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
+---> 15     cur.execute(songplay_table_insert, songplay_data)
+     16     conn.commit()
+     17 
+
+IndexError: tuple index out of range
+Run test.ipynb to see if you've successfully added records to this table.
+
+Close Connection to Sparkify Database
+conn.close()
+Implement etl.py
+Use what you've completed in this notebook to implement etl.py.
